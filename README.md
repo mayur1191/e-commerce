@@ -195,4 +195,4 @@ MIT License
 
 # 👨‍💻 Author
 
-Developed by Ethan Hunt
+Developed by Mayur Bhoi
