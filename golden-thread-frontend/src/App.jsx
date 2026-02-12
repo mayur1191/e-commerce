@@ -1594,23 +1594,69 @@ function AdminOrders(){
 // Keep your previous Add Product UI as a separate component:
 function AdminAddProduct(){
   const [msg, setMsg] = useState("");
+  const [cats, setCats] = useState([]);
+  const [loadingCats, setLoadingCats] = useState(false);
+
   const [form, setForm] = useState({
-    name:"", category:"Men", price:"", rating:"4.7", image:"", description:"",
-    sizes:"S,M,L,XL"
+    name: "",
+    category: "",          // will be set after categories load
+    price: "",
+    rating: "4.7",
+    image: "",
+    description: "",
+    sizes: "S,M,L,XL"
   });
+
+  const loadCats = async () => {
+    setLoadingCats(true);
+    setMsg("");
+    try {
+      const list = await api.categories(); // GET /api/categories
+      setCats(list);
+
+      // if no category selected yet, set first category name
+      if (!form.category && list?.length) {
+        setForm(f => ({ ...f, category: list[0].name }));
+      }
+    } catch (e) {
+      setMsg(e.message);
+    } finally {
+      setLoadingCats(false);
+    }
+  };
+
+  useEffect(() => { loadCats(); }, []); // load once
 
   const submit = async () => {
     setMsg("");
     try {
+      if (!form.name || !form.category || !form.price || !form.image || !form.description) {
+        setMsg("Please fill all required fields.");
+        return;
+      }
+
       const payload = {
-        ...form,
+        name: form.name,
+        category: form.category, // IMPORTANT: save category name string
         price: Number(form.price),
-        rating: Number(form.rating),
-        sizes: form.sizes.split(",").map(s=>s.trim()).filter(Boolean)
+        rating: Number(form.rating || 4.7),
+        image: form.image,
+        description: form.description,
+        sizes: form.sizes.split(",").map(s => s.trim()).filter(Boolean)
       };
+
       await api.addProduct(payload);
+
       setMsg("Product added ✅ Go to Shop to see it.");
-      setForm({ name:"", category:"Men", price:"", rating:"4.7", image:"", description:"", sizes:"S,M,L,XL" });
+      setForm(f => ({
+        name: "",
+        category: cats?.[0]?.name || "",
+        price: "",
+        rating: "4.7",
+        image: "",
+        description: "",
+        sizes: "S,M,L,XL"
+      }));
     } catch (e) {
       setMsg(e.message);
     }
@@ -1618,28 +1664,99 @@ function AdminAddProduct(){
 
   return (
     <div className="card" style={{padding:16}}>
-      <div style={{fontWeight:900, fontSize:18}}>Admin: Add Product</div>
-      <div className="muted" style={{fontSize:13, marginTop:6}}>Use an image URL (e.g. Unsplash).</div>
+      <div style={{display:"flex", justifyContent:"space-between", gap:10, flexWrap:"wrap", alignItems:"center"}}>
+        <div>
+          <div style={{fontWeight:900, fontSize:18}}>Admin: Add Product</div>
+          <div className="muted" style={{fontSize:13, marginTop:6}}>
+            Category dropdown is dynamic (from DB).
+          </div>
+        </div>
+
+        <button className="btn" onClick={loadCats}>
+          {loadingCats ? "Loading..." : "Reload Categories"}
+        </button>
+      </div>
+
+      {msg && <div className="muted" style={{marginTop:10}}>{msg}</div>}
 
       <div style={{height:10}} />
+
       <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:10}}>
-        <input className="input" value={form.name} onChange={(e)=>setForm(f=>({...f,name:e.target.value}))} placeholder="Product name" />
-        <select className="input" value={form.category} onChange={(e)=>setForm(f=>({...f,category:e.target.value}))}>
-          <option>Men</option><option>Women</option><option>Kid</option>
+        <input
+          className="input"
+          value={form.name}
+          onChange={(e)=>setForm(f=>({...f, name:e.target.value}))}
+          placeholder="Product name *"
+        />
+
+        <select
+          className="input"
+          value={form.category}
+          onChange={(e)=>setForm(f=>({...f, category:e.target.value}))}
+          disabled={!cats.length}
+        >
+          {cats.length ? (
+            cats.map(c => (
+              <option key={c.id} value={c.name}>{c.name}</option>
+            ))
+          ) : (
+            <option value="">No categories (create in Admin → Categories)</option>
+          )}
         </select>
-        <input className="input" value={form.price} onChange={(e)=>setForm(f=>({...f,price:e.target.value}))} placeholder="Price (AED)" />
-        <input className="input" value={form.rating} onChange={(e)=>setForm(f=>({...f,rating:e.target.value}))} placeholder="Rating" />
-        <input className="input" style={{gridColumn:"1/-1"}} value={form.image} onChange={(e)=>setForm(f=>({...f,image:e.target.value}))} placeholder="Image URL" />
-        <input className="input" style={{gridColumn:"1/-1"}} value={form.description} onChange={(e)=>setForm(f=>({...f,description:e.target.value}))} placeholder="Description" />
-        <input className="input" style={{gridColumn:"1/-1"}} value={form.sizes} onChange={(e)=>setForm(f=>({...f,sizes:e.target.value}))} placeholder="Sizes (comma separated)" />
+
+        <input
+          className="input"
+          value={form.price}
+          onChange={(e)=>setForm(f=>({...f, price:e.target.value}))}
+          placeholder="Price (AED) *"
+        />
+
+        <input
+          className="input"
+          value={form.rating}
+          onChange={(e)=>setForm(f=>({...f, rating:e.target.value}))}
+          placeholder="Rating (e.g. 4.7)"
+        />
+
+        <input
+          className="input"
+          style={{gridColumn:"1/-1"}}
+          value={form.image}
+          onChange={(e)=>setForm(f=>({...f, image:e.target.value}))}
+          placeholder="Image URL *"
+        />
+
+        <input
+          className="input"
+          style={{gridColumn:"1/-1"}}
+          value={form.description}
+          onChange={(e)=>setForm(f=>({...f, description:e.target.value}))}
+          placeholder="Description *"
+        />
+
+        <input
+          className="input"
+          style={{gridColumn:"1/-1"}}
+          value={form.sizes}
+          onChange={(e)=>setForm(f=>({...f, sizes:e.target.value}))}
+          placeholder="Sizes comma separated (S,M,L,XL)"
+        />
       </div>
 
       <div style={{height:12}} />
-      <button className="btn primary" onClick={submit}>Add Product</button>
-      {msg && <div className="muted" style={{marginTop:10}}>{msg}</div>}
+      <button className="btn primary" onClick={submit} disabled={!cats.length}>
+        Add Product
+      </button>
+
+      <style>{`
+        @media (max-width: 720px){
+          div[style*="grid-template-columns:1fr 1fr"]{ grid-template-columns:1fr !important; }
+        }
+      `}</style>
     </div>
   );
 }
+
 
 
 function NotFound(){
